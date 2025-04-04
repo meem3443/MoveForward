@@ -1,0 +1,47 @@
+name: Code Style Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install clang-format for C/C++
+        run: sudo apt-get install -y clang-format
+
+      # Python 파일 검사
+      - name: Run Python Lint
+        run: |
+          pip install black
+          black --check . || exit 1
+
+      # Java 파일 검사
+      - name: Run Java Checkstyle
+        run: |
+          wget -q https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.12.2/checkstyle-10.12.2-all.jar -O checkstyle.jar
+          wget -q https://raw.githubusercontent.com/checkstyle/checkstyle/master/src/main/resources/google_checks.xml
+          find . -name "*.java" > java-files.txt
+          while IFS= read -r file; do
+            java -jar checkstyle.jar -c google_checks.xml "$file" || exit 1
+          done < java-files.txt
+
+      # C 파일 검사
+      - name: Run clang-format (C)
+        run: |
+          find . -name "*.c" -exec clang-format --dry-run --Werror {} \;
