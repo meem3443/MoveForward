@@ -31,18 +31,26 @@ jobs:
           pip install black
           black --check . || exit 1
 
-      # Java 파일 검사
+      # Java 파일 검사    
       - name: Run Java Checkstyle
         run: |
           wget -q https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.12.2/checkstyle-10.12.2-all.jar -O checkstyle.jar
-          wget -q https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.12.2/google_checks.xml
+          wget -q https://github.com/checkstyle/checkstyle/master/src/main/resources/google_checks.xml -O google_checks.xml
           find . -name "*.java" > java-files.txt
+          echo '<?xml version="1.0" encoding="UTF-8"?><checkstyle>' > checkstyle-result.xml
           while IFS= read -r file; do
-            java -jar checkstyle.jar -c google_checks.xml "$file" || exit 1
+            java -jar checkstyle.jar -c google_checks.xml -f xml "$file" >> checkstyle-result.xml || true
           done < java-files.txt
+          echo '</checkstyle>' >> checkstyle-result.xml
 
-          
-
+      # Checkstyle 결과를 PR에 코멘트로 표시
+      - name: Reviewdog - Checkstyle
+        uses: reviewdog/action-checkstyle@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          checkstyle_input: checkstyle-result.xml
+  
       # C 파일 검사
       - name: Run clang-format (C)
         run: |
