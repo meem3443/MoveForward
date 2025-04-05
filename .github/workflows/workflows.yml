@@ -7,6 +7,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v3
@@ -14,34 +15,42 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
-      - name: Install clang-format for C/C++
-        run: sudo apt-get install -y clang-format
-
-      # Python 파일 검사
-      - name: Run Python Lint
+      - name: Install dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
           pip install black
-          black --check . || exit 1
+          curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b /usr/local/bin
 
-      # Java 파일 검사
-      - name: Run Java Checkstyle
+      # Python Lint (black)
+      - name: Run black (Python) with reviewdog
+        run: |
+          black . --check --diff 2>&1 | tee black.log | reviewdog -f=diff -name="black" -reporter=github-pr-check -level=warning
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Java Checkstyle
+      - name: Run Checkstyle (Java) with reviewdog
         run: |
           wget -q https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.12.2/checkstyle-10.12.2-all.jar -O checkstyle.jar
           wget -q https://raw.githubusercontent.com/checkstyle/checkstyle/master/src/main/resources/google_checks.xml
           find . -name "*.java" > java-files.txt
-          while IFS= read -r file; do
-            java -jar checkstyle.jar -c google_checks.xml "$file" || exit 1
-          done < java-files.txt
+          java -jar checkstyle.jar -c google_checks.xml -f xml $(cat java-files.txt) > checkstyle-result.xml || true
+          cat checkstyle-result.xml | reviewdog -f=checkstyle -name="checkstyle" -reporter=github-pr-check -level=warning
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # C 파일 검사
-      - name: Run clang-format (C)
+      # C clang-format
+      - name: Run clang-format (C) with reviewdog
         run: |
-          find . -name "*.c" -exec clang-format --dry-run --Werror {} \;
+          find . -name "*.c" | xargs -I{} clang-format --dry-run --Werror {} 2>&1 | tee clang.log | reviewdog -f=clang -name="clang-format" -reporter=github-pr-check -level=warning
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
