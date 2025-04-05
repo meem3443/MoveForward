@@ -1,57 +1,28 @@
-name: Code Style Check
+name: Java Code Style Check
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main] # main 브랜치로 향하는 PR에 대해서만 실행
 
 jobs:
-  lint:
+  code_style:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout PR branch
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-
-      - name: Set up Java
+      - name: Set up JDK
         uses: actions/setup-java@v3
         with:
+          java-version: "21" # 프로젝트에 맞는 Java 버전으로 변경
           distribution: "temurin"
-          java-version: "17"
 
-      - name: Install dependencies
+      - name: Run Checkstyle CLI
+        run: java -jar tools/checkstyle-10.12.5-all.jar -c checkstyle.xml ${{ github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.changed_files.*.endsWith('.java') || github.event.pull_request.head.repo.full_name != github.repository && github.event.pull_request.changed_files.*.endsWith('.java') }}
+
+      # 결과에 따라 PR 상태를 설정 (실패 시 병합 방지)
+      - name: Fail if Checkstyle violations are found
+        if: failure()
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format
-          pip install black
-          curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b /usr/local/bin
-
-      # Python Lint (black)
-      - name: Run black (Python) with reviewdog
-        run: |
-          black . --check --diff 2>&1 | tee black.log | reviewdog -f=diff -name="black" -reporter=github-pr-check -level=warning
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Java Checkstyle
-
-      - name: Run Checkstyle (Java) with reviewdog
-        run: |
-          wget -q https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.11.0/checkstyle-10.11.0-all.jar -O checkstyle.jar
-          wget -q https://raw.githubusercontent.com/checkstyle/checkstyle/master/src/main/resources/google_checks.xml
-          find . -name "*.java" > java-files.txt
-          java -jar checkstyle.jar -c google_checks.xml -f xml $(cat java-files.txt) > checkstyle-result.xml || true
-          cat checkstyle-result.xml | reviewdog -f=checkstyle -name="checkstyle" -reporter=github-pr-check -level=warning
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # C clang-format
-      - name: Run clang-format (C) with reviewdog
-        run: |
-          find . -name "*.c" | xargs -I{} clang-format --dry-run --Werror {} 2>&1 | tee clang.log | reviewdog -f=clang -name="clang-format" -reporter=github-pr-check -level=warning
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "::error::Java 코드 스타일 검사를 통과하지 못했습니다. 자세한 내용은 Checks 탭을 확인해주세요."
+          exit 1
