@@ -2,7 +2,7 @@ name: Java Code Style Check
 
 on:
   pull_request:
-    branches: [main] # main 브랜치로 향하는 PR에 대해서만 실행
+    branches: [main]
 
 jobs:
   code_style:
@@ -14,13 +14,21 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: "21" # 프로젝트에 맞는 Java 버전으로 변경
+          java-version: "21"
           distribution: "temurin"
 
-      - name: Run Checkstyle CLI
-        run: java -jar tools/checkstyle-10.12.5-all.jar -c checkstyle.xml ${{ github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.changed_files.*.endsWith('.java') || github.event.pull_request.head.repo.full_name != github.repository && github.event.pull_request.changed_files.*.endsWith('.java') }}
+      - name: Download Checkstyle CLI
+        run: wget https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.12.5/checkstyle-10.12.5-all.jar -O tools/checkstyle-10.12.5-all.jar # tools 폴더에 저장
 
-      # 결과에 따라 PR 상태를 설정 (실패 시 병합 방지)
+      - name: Get changed Java files
+        id: changed_files
+        run: |
+          changed_java_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep '\.java$')
+          echo "changed_java_files=$changed_java_files" >> $GITHUB_OUTPUT
+
+      - name: Run Checkstyle CLI
+        run: java -jar tools/checkstyle-10.12.5-all.jar -c checkstyle.xml ${{ steps.changed_files.outputs.changed_java_files }}
+
       - name: Fail if Checkstyle violations are found
         if: failure()
         run: |
