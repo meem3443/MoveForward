@@ -38,9 +38,10 @@ jobs:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Java Checkstyle
+
       - name: Run Checkstyle (Java) with reviewdog
         run: |
-          wget -q https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.12.2/checkstyle-10.12.2-all.jar -O checkstyle.jar
+          wget -q https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.11.0/checkstyle-10.11.0-all.jar -O checkstyle.jar
           wget -q https://raw.githubusercontent.com/checkstyle/checkstyle/master/src/main/resources/google_checks.xml
           find . -name "*.java" > java-files.txt
           java -jar checkstyle.jar -c google_checks.xml -f xml $(cat java-files.txt) > checkstyle-result.xml || true
