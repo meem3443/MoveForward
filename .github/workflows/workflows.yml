@@ -35,11 +35,13 @@ jobs:
       - name: Run Java Checkstyle
         run: |
           wget -q https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.12.2/checkstyle-10.12.2-all.jar -O checkstyle.jar
-          wget -q https://raw.githubusercontent.com/checkstyle/checkstyle/master/src/main/resources/google_checks.xml
+          wget -q https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.12.2/google_checks.xml
           find . -name "*.java" > java-files.txt
           while IFS= read -r file; do
             java -jar checkstyle.jar -c google_checks.xml "$file" || exit 1
           done < java-files.txt
+
+          
 
       # C 파일 검사
       - name: Run clang-format (C)
